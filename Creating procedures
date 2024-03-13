@@ -1,0 +1,109 @@
+## Create a virtual table called OrdersView:
+CREATE VIEW OrdersView AS
+SELECT OrderID, Quantity, TotalCost
+FROM orders
+WHERE Quantity > 2;
+Extract the required information using a query:
+SELECT customers.CustomerID, customers.Names, orders.OrderID, orders.TotalCost, menus.MenuName, menus.CourseName
+FROM customersDetails customers INNER JOIN orders orders
+ON customers.CustomerID = orders.customerID
+INNER JOIN menus ON orders.MenuID = menus.MenuID 
+WHERE Cost > 150  ORDER BY Cost;
+
+## Find all menu items for which more than 2 orders had been placed:
+SELECT Menus.MenuName
+FROM Menus
+WHERE Menus.MenuID = ANY (
+    SELECT Orders.MenuID
+    FROM Orders
+    GROUP BY Orders.MenuID
+    HAVING COUNT(*) > 2
+);
+
+## Create stored procedure called GetMaxQuantity:
+CREATE PROCEDURE 'GetMaxQuantity'()
+SELECT max(quantity) AS "Max Quantity in Order" FROM orders
+
+## Create a prepared statement called GetOrderDetail:
+PREPARE GetOrderDetail FROM 
+'SELECT OrderID, Quantity, TotalCost FROM Orders WHERE CustomerID = ?';
+
+## Create a stored procedure called CancelOrder:
+DELIMITER //
+
+CREATE PROCEDURE CancelOrder(IN orderId INT)
+BEGIN
+    DELETE FROM Orders WHERE OrderID = orderId;
+END //
+
+DELIMITER ;
+
+## Create a stored procedure called CheckBooking:
+CREATE PROCEDURE 'CheckBooking'(booking_date DATE, table_number INT)
+BEGIN
+DECLARE bookedTable INT DEFAULT 0;
+ SELECT COUNT(bookedTable)
+    INTO bookedTable
+    FROM Bookings WHERE BookingDate = booking_date and TableNumber = table_number;
+    IF bookedTable > 0 THEN
+      SELECT CONCAT( "Table", table_number, "is already booked") AS "Booking status";
+      ELSE 
+      SELECT CONCAT( "Table", table_number, "is not booked") AS "Booking status";
+    END IF;
+END
+
+## Verify a booking and decline reservations for tables booked under another name:
+DELIMITER //
+
+CREATE PROCEDURE AddValidBooking(
+    IN bookingDate DATE,
+    IN tableNumber INT,
+    IN customerName VARCHAR(255)
+)
+BEGIN
+    DECLARE @existingBookingCount INT;
+
+    -- Check if the table is already booked
+    SELECT COUNT(*) INTO @existingBookingCount
+    FROM Bookings
+    WHERE BookingDate = bookingDate AND TableNumber = tableNumber;
+
+      -- Start a transaction
+    START TRANSACTION;
+
+    IF @existingBookingCount > 0 THEN
+        -- The table is already booked, so rollback the transaction
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Table is already booked for this date.';
+    ELSE
+        -- The table is available, so insert the new booking
+        INSERT INTO Bookings (BookingDate, TableNumber, CustomerName)
+        VALUES (bookingDate, tableNumber, customerName);
+
+        -- Commit the transaction
+        COMMIT;
+    END IF;
+END //
+
+DELIMITER ;
+
+## Create a new procedure called UpdateBooking:
+CREATE DEFINER='admin1'@'%' PROCEDURE 'UpdateBooking'(booking_id INT, booking_date DATE)
+BEGIN
+UPDATE bookings SET BookingDate = booking_date WHERE BookingID = booking_id; 
+SELECT CONCAT("Booking", booking_id, "updated") AS "Confirmation";
+END
+
+## Create a new procedure called CancelBooking:
+DELIMITER //
+CREATE PROCEDURE `LittleLemonDB`.`CancelBooking`(IN booking_id_to_cancel INT)
+BEGIN
+    -- Delete the booking record
+    DELETE FROM `LittleLemonDB`.`Bookings`
+    WHERE `BookingID` = booking_id_to_cancel;
+
+    SELECT CONCAT('Booking ', booking_id_to_cancel, ' cancelled') AS 'Confirmation';
+END;
+//
+DELIMITER ;
