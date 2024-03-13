@@ -1,0 +1,20 @@
+import mysql.connector as connector
+connection = connector.connect(user="root", password="Atdimpley$10")
+cursor = connection.cursor()
+cursor.execute("USE LittleLemonDB")
+
+creating_joins =
+"""
+SELECT customers.FullName, 
+customers.contactDetails, 
+orders.TotalCost
+FROM customers
+INNER JOIN orders ON customers.customerID = orders.customerID
+WHERE orders.TotalCost > 60;
+
+"""
+
+cursor.execute(creating_joins)
+results =cursor.fetchall()
+print(cursor.column_names)
+print(results)
